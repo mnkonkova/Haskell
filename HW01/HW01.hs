@@ -60,7 +60,7 @@ import Data.Foldable
 {-
 2. Реализовать расширенный алгоритм Евклида: `euclid x y = (a, b, r)`, где `a*x + b*y = r`.
 -}
-(λ x.x (((q r) s) r) s)	
+
 euclid :: Integer -> Integer -> (Integer, Integer, Integer)
 euclid 0 x = (0, 1, x)
 euclid x y = 
@@ -77,14 +77,14 @@ test_euclid ((x, y), (a, b, d)) = (a * x + b * y - d)
 3. Реализуйте функцию, считающую n-ое число Каталана:
 https://en.wikipedia.org/wiki/Catalan_number
 -}
-factorial :: Integer -> Integer
-factorial 1 = 1
-factorial x = x * factorial (x - 1)
+factorial :: Integer -> Integer -> Integer
+factorial 1 x = x
+factorial n x = factorial (n - 1) (x * n)
 
 catalan :: Integer -> Integer
 catalan 0 = 1
 catalan 1 = 1
-catalan n = factorial (2 * n) `div` factorial (n) `div` factorial (n + 1)
+catalan n = (factorial (2 * n) 1) `div` (factorial (n) 1) `div` (factorial (n + 1) 1)
 
 {-
 4. Не пользуясь стандартными функциями (арифметическими можно), сгенерируйте список всех степеней числа.
@@ -168,9 +168,14 @@ append :: MyNonEmptyList a -> MyNonEmptyList a -> MyNonEmptyList a
 append (OneElement x) ys = ListCon x ys
 append (ListCon x xs) ys = ListCon x (xs `append` ys)
 
+reverseNonEmptyHelp :: MyNonEmptyList a -> MyNonEmptyList a -> MyNonEmptyList a
+reverseNonEmptyHelp (OneElement x) xs = ListCon x xs
+reverseNonEmptyHelp (ListCon x xs) ys = reverseNonEmptyHelp xs (ListCon x ys)
+
+
 reverseNonEmpty :: MyNonEmptyList a -> MyNonEmptyList a
-reverseNonEmpty (OneElement x) = OneElement x
-reverseNonEmpty (ListCon x xs) = (reverseNonEmpty xs) `append` (OneElement x)
+reverseNonEmpty (OneElement x) = (OneElement x)
+reverseNonEmpty (ListCon x xs) = reverseNonEmptyHelp xs (OneElement x)
 
 {-
 7.3. Реализовать базовые инстансы для типа "непустой список".
@@ -330,9 +335,9 @@ main = hspec $ do
 	      test_euclid ((13, 13), (euclid 13 13)) `shouldBe` 0
   	describe "Catalan" $ do
 	    it "factorial" $ do
-			factorial 3 `shouldBe` 6
-			factorial 1 `shouldBe` 1
-			factorial 5 `shouldBe` 120
+			factorial 3 1 `shouldBe` 6
+			factorial 1 1 `shouldBe` 1
+			factorial 5 1 `shouldBe` 120
 	    it "catalan" $ do
 	    	catalan 1 `shouldBe` 1
 	    	catalan 2 `shouldBe` 2
