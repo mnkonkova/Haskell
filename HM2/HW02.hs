@@ -84,13 +84,13 @@ newtype SignalFunction a b = SF ((a, Double) -> (SignalFunction a b, b, Double))
 instance Category SignalFunction where
     id = SF (\(a, time) -> (id, a, time))
     SF f . SF g = SF $ \(a, time) -> let (sfg, b, timeg) = g (a, time)
-                                         (sff, c, timef) = f (b, time)
-                                     in (sff . sfg, c, time)
+                                         (sff, c, timef) = f (b, timeg)
+                                     in (sff . sfg, c, timef)
 instance Arrow SignalFunction where
   arr f = SF (\(a, time) -> (arr f, f a, time))
   first (SF f) = SF (\((a, b), time) -> 
                                   let (sf, x, time_x) = f (a, time)
-                                  in (first sf, (x, b), time))
+                                  in (first sf, (x, b), time_x))
 
 accumulated_ :: (Double, Double) -> SignalFunction Double Double
 accumulated_ (accumulated, current_x) = SF (\(x2, t2) -> (accumulated_ (t2 * (x2 - current_x) / 2 + current_x * t2 + accumulated, x2),
@@ -107,15 +107,6 @@ someFunction = proc (x, y) -> do
     sum2 <- (first integral) -< sum1
     returnA -< sum2
 
--- weirdMultiplier :: SignalFunction (Int, Int) Int
--- weirdMultiplier = proc (x, y) -> do
---   delayed <- delay 1 -< x
---   returnA -< delayed * y
-
--- runSignalFunction :: SignalFunction a b -> [a] -> [b]
--- runSignalFunction _ [] = []
--- runSignalFunction (SF f) (x:xs) = let (sf, y) = f x in y:runSignalFunction sf xs
-
 runSignalFunction :: SignalFunction a b -> a -> [(a, Double)] -> [b]
 runSignalFunction _ _ [] = []
 runSignalFunction sf atZero inputs = outputs
@@ -126,6 +117,32 @@ runSignalFunction sf atZero inputs = outputs
   outputs = 
     let (sigf, b, sum_sq) = f x
     in b:(runSignalFunction sigf a xs)
+
+newtype MyCont r a = MyCont { runCont :: (a -> r) -> r }
+instance Functor (MyCont r) where
+  fmap f (MyCont cont) = MyCont (\a -> cont (a.f))
+--a == \x -> x a1 
+-- (a1 type = a)
+
+instance Applicative (MyCont r) where
+  pure a = MyCont (\c -> (c a))
+  (MyCont f) <*> (MyCont cont) = MyCont (\a -> f (\b ->  cont (a.b)))
+  -- a :: b->r 
+  -- b :: (a->b)
+  -- (\b ->  cont (a . b)) :: (a->b)-> ((a->r)->r) (a->r)  :: (a->b)->r
+instance Monad (MyCont r) where
+  return a = MyCont (\c -> (c a))
+  (>>=) (MyCont cont) func  =  MyCont (\a -> cont (\b -> (runCont (func b)) a))
+    -- MyCont (\r -> runCont func (\b -> cont b) r)
+    --a :: (b->r)
+check_MyCont :: (Integer -> Integer) -> Integer
+check_MyCont f = f 2
+
+check_MyCont1 :: ((Integer -> Integer) -> Integer) -> Integer
+check_MyCont1 f = f (+3)
+
+check_MyCont2 :: Integer -> MyCont Integer Integer
+check_MyCont2 x = MyCont (\x -> x 10)
 --------------------------------------------
 main :: IO ()
 main = hspec $ do
@@ -180,5 +197,11 @@ main = hspec $ do
             in (acc, t)) `shouldBe` (9.899999999999999, 28.0)
           runSignalFunction someFunction (0, 0) [ ((1, 2), 0.1), ((3, 4), 0.2), ((5, 6), 0.3) ]
             `shouldBe` [ (0.4, 8), (3, 18), (9.899999999999999, 28) ]
-
-        
+    describe "MyCont" $ do
+        it "Functor" $ do
+          (runCont (MyCont check_MyCont)) (\int -> int + 10)`shouldBe` 12
+          (runCont (fmap (+3) (MyCont check_MyCont))) (\int -> int + 10)`shouldBe` 15
+        it "Applicative" $ do
+          (runCont ((MyCont check_MyCont1)<*> (MyCont check_MyCont))) (\int -> int + 10)`shouldBe` 15
+        it "Monad" $ do
+          runCont ((MyCont check_MyCont) >>= check_MyCont2) (\int -> int + 10) `shouldBe` 20
