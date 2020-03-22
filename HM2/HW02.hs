@@ -70,7 +70,9 @@ instance Functor (State s) where
                                
 instance Applicative (State s) where
     pure a = State (\s -> (a, s))
-    f <*> state = State ((\((a, s), (f, s1)) -> (f a, s1)).(\a -> (runState state a, runState f a)))
+    func <*> state = State ((\((f, a, s)) -> (f a, s)).(\a -> let (f, s1) = runState func a
+                                                                  (a2, s2) = runState state s1
+                                                                  in (f, a2, s2)))
 
 instance Monad (State s) where
     return a = State (\s -> (a, s))
