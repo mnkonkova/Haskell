@@ -70,7 +70,7 @@ instance Functor (State s) where
                                
 instance Applicative (State s) where
     pure a = State (\s -> (a, s))
-    f <*> state = State ((\((a, s), (f, s1)) -> (f a, s)).(\a -> (runState state a, runState f a)))
+    f <*> state = State ((\((a, s), (f, s1)) -> (f a, s1)).(\a -> (runState state a, runState f a)))
 
 instance Monad (State s) where
     return a = State (\s -> (a, s))
@@ -143,6 +143,26 @@ check_MyCont1 f = f (+3)
 
 check_MyCont2 :: Integer -> MyCont Integer Integer
 check_MyCont2 x = MyCont (\x -> x 10)
+
+
+
+class MonadTrans n where
+  lift :: Monad m => m a -> n m a
+-- (>>=) :: m a -> (a -> m b) -> m b
+newtype MaybeT m a = MaybeT { runMaybeT :: m (Maybe a) }
+
+instance MonadTrans MaybeT where
+   lift ma = MaybeT (ma >>= return . Just)
+
+newtype StateT s m a = StateT { runStateT :: s -> m (a,s) }
+
+instance MonadTrans (StateT s) where
+    lift ma = StateT (\s -> ma >>= (\a -> return (a, s)))
+
+newtype ContT r m a = ContT { runContT :: (a -> m r) -> m r }
+
+instance MonadTrans (ContT r) where
+    lift ma = ContT (\s -> ma >>= s)
 --------------------------------------------
 main :: IO ()
 main = hspec $ do
