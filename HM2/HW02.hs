@@ -103,9 +103,9 @@ integral = accumulated_ (0, 0)
 
 someFunction :: SignalFunction (Double, Double) (Double, Double)
 someFunction = proc (x, y) -> do
-    mul1 <- id -< x * 2
-    mul2 <- id -< y * 3
-    sum1 <- arr (\x -> (x, x)) -< mul1 + mul2
+    mul1 <- arr (\x -> x * 2)-< x
+    mul2 <- arr (\x -> x * 3)-< y
+    sum1 <- arr (\(x, y) -> (x + y, x + y)) -< (mul1, mul2)
     sum2 <- (first integral) -< sum1
     returnA -< sum2
 
